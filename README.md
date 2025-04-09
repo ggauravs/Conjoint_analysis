@@ -3,9 +3,13 @@ A simple project demonstrating Choice-Based Conjoint (CBC) Analysis using R, inc
 
 🧰 Features
 Build a CBC experiment using simulated product profiles
+
 Estimate part-worth utilities via mlogit
+
 Compute attribute importance
+
 Generate visual summaries and PowerPoint slides
+
 Customizable attributes (Brand, Price, Battery, Camera)
 
 📦 conjoint-analysis/
