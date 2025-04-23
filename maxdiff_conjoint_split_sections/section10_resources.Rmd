@@ -1,0 +1,77 @@
+---
+title: "Section 10: Resources & References"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# 9. Resources & References
+
+## R Packages for Conjoint and MaxDiff Analysis
+
+### Conjoint Analysis Packages
+- **mlogit**: Multinomial logit models for choice data
+- **conjoint**: Traditional conjoint analysis
+- **support.CEs**: Tools for choice experiments
+- **bayesm**: Bayesian inference for marketing problems
+- **ChoiceModelR**: Hierarchical Bayes for choice-based conjoint
+
+### MaxDiff Analysis Packages
+- **support.BWS**: Best-worst scaling analysis
+- **logitr**: Logit models for choice data
+- **RSGHB**: Hierarchical Bayes estimation for MaxDiff
+
+```{r resources, eval=TRUE}
+# Example of available packages
+cat("Conjoint Analysis Packages:\n")
+conjoint_packages <- c("mlogit", "conjoint", "support.CEs", "bayesm", "ChoiceModelR")
+for (pkg in conjoint_packages) {
+  cat(paste0("- ", pkg, "\n"))
+}
+
+cat("\nMaxDiff Analysis Packages:\n")
+maxdiff_packages <- c("support.BWS", "logitr", "RSGHB")
+for (pkg in maxdiff_packages) {
+  cat(paste0("- ", pkg, "\n"))
+}
+
+# Example code for installing packages
+cat("\nExample code for installing packages:\n")
+cat("```r\n")
+cat("# Install required packages\n")
+cat("install.packages(c('mlogit', 'support.CEs'))\n")
+cat("\n")
+cat("# Load packages\n")
+cat("library(mlogit)\n")
+cat("library(support.CEs)\n")
+cat("```\n")
+```
+
+## Additional Resources
+
+### Books and Articles
+- Orme, B. (2020). Getting Started with Conjoint Analysis: Strategies for Product Design and Pricing Research. Research Publishers LLC.
+- Louviere, J. J., Flynn, T. N., & Marley, A. A. J. (2015). Best-Worst Scaling: Theory, Methods and Applications. Cambridge University Press.
+
+### Online Resources
+- Sawtooth Software Documentation: [https://sawtoothsoftware.com/resources/technical-papers](https://sawtoothsoftware.com/resources/technical-papers)
+- Displayr MaxDiff Resources: [https://docs.displayr.com/wiki/MaxDiff](https://docs.displayr.com/wiki/MaxDiff)
+- Counts Analysis of MaxDiff Data: [https://docs.displayr.com/wiki/Counts_Analysis_of_MaxDiff_Data](https://docs.displayr.com/wiki/Counts_Analysis_of_MaxDiff_Data)
+- Analyzing MaxDiff Using Standard Logit Models Using R: [https://docs.displayr.com/wiki/Analyzing_MaxDiff_Using_Standard_Logit_Models_Using_R](https://docs.displayr.com/wiki/Analyzing_MaxDiff_Using_Standard_Logit_Models_Using_R)
+
+## Acknowledgments
+
+This training module was developed to provide a comprehensive introduction to both MaxDiff and Conjoint analysis techniques. The code examples are designed to be educational and may need adaptation for specific research applications.
+
+```{r session-info}
+# Session information for reproducibility
+sessionInfo()
+```

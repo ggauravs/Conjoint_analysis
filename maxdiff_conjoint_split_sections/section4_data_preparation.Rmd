@@ -1,0 +1,294 @@
+---
+title: "Section 4: Data Structure & Preparation for MaxDiff and Conjoint Analysis"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# 4. Data Structure & Preparation
+
+## Structure of Conjoint data
+
+Conjoint data typically comes in one of two formats:
+
+1. **Long format**: Each row represents one alternative in a choice set
+2. **Wide format**: Each row represents one choice task with multiple alternatives
+
+```{r conjoint-data-structure}
+# Example of conjoint data in long format
+set.seed(123)
+conjoint_data_long <- tibble(
+  resp_id = rep(1:3, each = 12),
+  task_id = rep(rep(1:4, each = 3), 3),
+  alt_id = rep(1:3, 12),
+  choice = rep(0, 36),
+  brand = sample(c("Apple", "Samsung", "Google", "Xiaomi"), 36, replace = TRUE),
+  price = sample(c("$400", "$700", "$1000"), 36, replace = TRUE),
+  battery = sample(c("15 hours", "20 hours", "25 hours"), 36, replace = TRUE),
+  camera = sample(c("16 MP", "64 MP", "128 MP"), 36, replace = TRUE)
+)
+
+# Simulate choices (one choice per task)
+for (r in unique(conjoint_data_long$resp_id)) {
+  for (t in unique(conjoint_data_long$task_id)) {
+    idx <- which(conjoint_data_long$resp_id == r & conjoint_data_long$task_id == t)
+    chosen <- sample(idx, 1)
+    conjoint_data_long$choice[chosen] <- 1
+  }
+}
+
+# Show example of the data
+knitr::kable(head(conjoint_data_long), caption = "Conjoint Data in Long Format")
+```
+
+::: {.interpretation}
+The table above shows conjoint data in long format. Each row represents one alternative in a choice set:
+- `resp_id`: Respondent identifier
+- `task_id`: Task/question identifier
+- `alt_id`: Alternative identifier within a task
+- `choice`: 1 if this alternative was chosen, 0 otherwise
+- Attribute columns: The levels of each attribute for this alternative
+:::
+
+```{r conjoint-data-wide}
+# Example of conjoint data in wide format
+conjoint_data_wide <- tibble(
+  resp_id = rep(1:2, each = 2),
+  task_id = rep(1:2, 2),
+  choice = rep(1:3, length.out = 4),  # Which alternative was chosen
+  
+  # Alternative 1
+  alt1_brand = sample(c("Apple", "Samsung", "Google", "Xiaomi"), 4, replace = TRUE),
+  alt1_price = sample(c("$400", "$700", "$1000"), 4, replace = TRUE),
+  alt1_battery = sample(c("15 hours", "20 hours", "25 hours"), 4, replace = TRUE),
+  alt1_camera = sample(c("16 MP", "64 MP", "128 MP"), 4, replace = TRUE),
+  
+  # Alternative 2
+  alt2_brand = sample(c("Apple", "Samsung", "Google", "Xiaomi"), 4, replace = TRUE),
+  alt2_price = sample(c("$400", "$700", "$1000"), 4, replace = TRUE),
+  alt2_battery = sample(c("15 hours", "20 hours", "25 hours"), 4, replace = TRUE),
+  alt2_camera = sample(c("16 MP", "64 MP", "128 MP"), 4, replace = TRUE),
+  
+  # Alternative 3
+  alt3_brand = sample(c("Apple", "Samsung", "Google", "Xiaomi"), 4, replace = TRUE),
+  alt3_price = sample(c("$400", "$700", "$1000"), 4, replace = TRUE),
+  alt3_battery = sample(c("15 hours", "20 hours", "25 hours"), 4, replace = TRUE),
+  alt3_camera = sample(c("16 MP", "64 MP", "128 MP"), 4, replace = TRUE)
+)
+
+# Show example of the data
+knitr::kable(conjoint_data_wide, caption = "Conjoint Data in Wide Format")
+```
+
+## Structure of MaxDiff data
+
+MaxDiff data can also be structured in different ways:
+
+1. **Stacked format**: Each row represents one item in a MaxDiff set
+2. **Binary format**: Each row represents one MaxDiff question with binary indicators for best/worst
+
+```{r maxdiff-data-structure}
+# Define the features again for this section
+features <- c(
+  "Long battery life",
+  "Fast charging",
+  "High-resolution display",
+  "Water resistance",
+  "Compact design",
+  "Expandable storage",
+  "Wireless charging",
+  "Advanced camera features",
+  "Biometric security",
+  "5G connectivity"
+)
+
+# Example of MaxDiff data in stacked format
+set.seed(456)
+maxdiff_data_stacked <- tibble(
+  resp_id = rep(1:3, each = 16),
+  set_id = rep(rep(1:4, each = 4), 3),
+  item_id = rep(1:10, 5)[1:48],
+  item = features[rep(1:10, 5)[1:48]],
+  is_best = 0,
+  is_worst = 0
+)
+
+# Simulate best and worst choices
+for (r in unique(maxdiff_data_stacked$resp_id)) {
+  for (s in unique(maxdiff_data_stacked$set_id)) {
+    idx <- which(maxdiff_data_stacked$resp_id == r & maxdiff_data_stacked$set_id == s)
+    best_idx <- sample(idx, 1)
+    worst_idx <- sample(idx[idx != best_idx], 1)
+    
+    maxdiff_data_stacked$is_best[best_idx] <- 1
+    maxdiff_data_stacked$is_worst[worst_idx] <- 1
+  }
+}
+
+# Show example of the data
+knitr::kable(head(maxdiff_data_stacked), caption = "MaxDiff Data in Stacked Format")
+```
+
+::: {.interpretation}
+The table above shows MaxDiff data in stacked format. Each row represents one item in a MaxDiff question set:
+- `resp_id`: Respondent identifier
+- `set_id`: Set/question identifier
+- `item_id`: Item identifier
+- `item`: The actual item text
+- `is_best`: 1 if this item was selected as best, 0 otherwise
+- `is_worst`: 1 if this item was selected as worst, 0 otherwise
+:::
+
+```{r maxdiff-data-binary}
+# Example of MaxDiff data in binary format
+maxdiff_data_binary <- tibble(
+  resp_id = rep(1:2, each = 3),
+  set_id = rep(1:3, 2),
+  items = list(
+    c("Long battery life", "Fast charging", "High-resolution display", "Water resistance"),
+    c("Compact design", "Expandable storage", "Wireless charging", "Advanced camera features"),
+    c("Biometric security", "5G connectivity", "Long battery life", "Fast charging"),
+    c("Long battery life", "Fast charging", "High-resolution display", "Water resistance"),
+    c("Compact design", "Expandable storage", "Wireless charging", "Advanced camera features"),
+    c("Biometric security", "5G connectivity", "Long battery life", "Fast charging")
+  ),
+  best_item = c(
+    "Long battery life", "Wireless charging", "5G connectivity",
+    "Fast charging", "Advanced camera features", "Long battery life"
+  ),
+  worst_item = c(
+    "Water resistance", "Compact design", "Biometric security",
+    "High-resolution display", "Expandable storage", "5G connectivity"
+  )
+)
+
+# Show example of the data
+knitr::kable(maxdiff_data_binary[1:3,], caption = "MaxDiff Data in Binary Format")
+```
+
+## How to reshape survey output for modeling
+
+```{r data-reshaping, eval=TRUE}
+# Reshaping conjoint data from wide to long format
+conjoint_wide_to_long <- function(data_wide) {
+  # This is a simplified example
+  data_long <- data_wide %>%
+    pivot_longer(
+      cols = starts_with("alt"),
+      names_to = c("alt_id", ".value"),
+      names_pattern = "alt(\\d+)_(.*)"
+    )
+  
+  return(data_long)
+}
+
+# Example of reshaping wide to long
+conjoint_reshaped <- conjoint_wide_to_long(conjoint_data_wide)
+knitr::kable(head(conjoint_reshaped), caption = "Reshaped Conjoint Data")
+
+# Reshaping MaxDiff data for analysis
+maxdiff_to_analysis_format <- function(data) {
+  # Convert to format suitable for analysis
+  data_analysis <- data %>%
+    mutate(
+      choice = case_when(
+        is_best == 1 ~ 1,
+        is_worst == 1 ~ -1,
+        TRUE ~ 0
+      )
+    ) %>%
+    select(resp_id, set_id, item_id, item, choice)
+  
+  return(data_analysis)
+}
+
+# Example of reshaping MaxDiff data
+maxdiff_reshaped <- maxdiff_to_analysis_format(maxdiff_data_stacked)
+knitr::kable(head(maxdiff_reshaped), caption = "Reshaped MaxDiff Data")
+```
+
+## Handle missing or invalid data
+
+```{r missing-data, eval=TRUE}
+# Function to check for and handle missing data in conjoint
+check_conjoint_data <- function(data) {
+  # Check for missing choices
+  missing_choices <- data %>%
+    group_by(resp_id, task_id) %>%
+    summarize(sum_choices = sum(choice), .groups = "drop") %>%
+    filter(sum_choices != 1)
+  
+  if (nrow(missing_choices) > 0) {
+    warning(paste("Found", nrow(missing_choices), "tasks with invalid choice patterns"))
+  }
+  
+  # Check for missing attribute values
+  missing_attrs <- data %>%
+    summarize(across(c(brand, price, battery, camera), ~sum(is.na(.))))
+  
+  return(list(missing_choices = missing_choices, missing_attrs = missing_attrs))
+}
+
+# Introduce some missing data for demonstration
+conjoint_data_with_missing <- conjoint_data_long
+conjoint_data_with_missing$choice[1:3] <- 0  # No choice in first task
+conjoint_data_with_missing$brand[5] <- NA    # Missing brand value
+
+# Check for issues
+missing_check <- check_conjoint_data(conjoint_data_with_missing)
+cat("Tasks with invalid choice patterns:\n")
+print(missing_check$missing_choices)
+cat("\nMissing attribute values:\n")
+print(missing_check$missing_attrs)
+
+# Function to check for and handle missing data in MaxDiff
+check_maxdiff_data <- function(data) {
+  # Check for missing best/worst selections
+  missing_selections <- data %>%
+    group_by(resp_id, set_id) %>%
+    summarize(
+      sum_best = sum(is_best),
+      sum_worst = sum(is_worst),
+      .groups = "drop"
+    ) %>%
+    filter(sum_best != 1 | sum_worst != 1)
+  
+  if (nrow(missing_selections) > 0) {
+    warning(paste("Found", nrow(missing_selections), "sets with invalid selection patterns"))
+  }
+  
+  return(missing_selections)
+}
+
+# Introduce some missing data for demonstration
+maxdiff_data_with_missing <- maxdiff_data_stacked
+maxdiff_data_with_missing$is_best[1:4] <- 0  # No best choice in first set
+maxdiff_data_with_missing$is_worst[9:12] <- 0  # No worst choice in third set
+
+# Check for issues
+missing_maxdiff_check <- check_maxdiff_data(maxdiff_data_with_missing)
+cat("Sets with invalid selection patterns:\n")
+print(missing_maxdiff_check)
+```
+
+::: {.warning}
+**Handling Missing Data**
+
+For conjoint analysis:
+- Tasks with no chosen alternative or multiple chosen alternatives should be flagged
+- Missing attribute values can be imputed or the entire alternative can be excluded
+- Respondents with excessive missing data may need to be removed
+
+For MaxDiff analysis:
+- Sets with no best or worst selection should be flagged
+- Sets with multiple best or worst selections should be corrected
+- Respondents with excessive missing data may need to be removed
+:::

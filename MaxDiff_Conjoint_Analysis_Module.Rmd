@@ -1,0 +1,394 @@
+---
+title: "MaxDiff and Conjoint Analysis: A Combined Learning Module"
+author: "Market Research Team"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: cosmo
+    highlight: tango
+    code_folding: show
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+# Install and load required packages
+required_packages <- c("tidyverse", "AlgDesign", "mlogit", "ggplot2", "survival")
+for (pkg in required_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg, repos = "http://cran.us.r-project.org")
+  }
+  library(pkg, character.only = TRUE)
+}
+
+# Optional package for MaxDiff
+if (!requireNamespace("support.BWS", quietly = TRUE)) {
+  warning("support.BWS not installed. Using simplified MaxDiff design.")
+}
+
+# Set seed for reproducibility
+set.seed(123)
+```
+
+# 1. Introduction
+
+## What are Conjoint and MaxDiff analyses?
+
+Conjoint analysis and Maximum Difference Scaling (MaxDiff) are powerful market research techniques to understand consumer preferences.
+
+::: {.callout}
+**Conjoint Analysis** measures trade-offs among product features, simulating real-world purchasing decisions (e.g., price vs. quality).
+:::
+
+::: {.callout}
+**MaxDiff Analysis** (Best-Worst Scaling) measures the relative importance of items by asking respondents to select the most and least important items from subsets.
+:::
+
+## When to use which method?
+
+| Aspect | Conjoint Analysis | MaxDiff Analysis |
+|--------|------------------|------------------|
+| **Primary Use** | Trade-offs between attributes | Prioritizing features |
+| **Best For** | Product configuration, pricing | Feature prioritization, messaging |
+| **Decision Context** | Multi-attribute decisions | Relative importance |
+| **Output** | Part-worth utilities, market simulations | Preference scores, rankings |
+| **Sample Size** | Moderate to large | Smaller samples viable |
+
+## Key differences
+
+- **Conjoint Analysis**: Evaluates complete product profiles with multiple attributes.
+- **MaxDiff Analysis**: Assesses individual items in isolation.
+
+::: {.tip}
+**Choose Conjoint** for trade-off analysis and market simulations.  
+**Choose MaxDiff** for prioritizing features or benefits without trade-offs.
+:::
+
+# 2. Study Design
+
+## How to design a Conjoint experiment
+
+### Attributes and levels selection
+
+```{r conjoint-attributes}
+# Define attributes and levels
+smartphone_attrs <- list(
+  brand = c("Apple", "Samsung", "Google", "Xiaomi"),
+  price = c("$400", "$700", "$1000"),
+  battery = c("15 hours", "20 hours", "25 hours"),
+  camera = c("16 MP", "64 MP", "128 MP")
+)
+
+# Display attributes
+for (attr in names(smartphone_attrs)) {
+  cat(sprintf("Attribute: %s\nLevels: %s\n\n", attr, paste(smartphone_attrs[[attr]], collapse = ", ")))
+}
+```
+
+::: {.note}
+**Tips for Attributes**:
+- Choose 4-6 relevant attributes.
+- Select realistic, distinct levels.
+- Avoid respondent fatigue.
+:::
+
+### Types of conjoint designs
+
+1. **Full-profile**: Evaluate all attributes.
+2. **Choice-based (CBC)**: Choose between profiles.
+3. **Adaptive**: Adjusts based on responses.
+
+### Experimental design considerations
+
+- **Orthogonality**: Independent attribute variation.
+- **Balance**: Equal level appearances.
+- **Efficiency**: Maximize information, minimize burden.
+
+```{r conjoint-design}
+# Create full factorial design
+full_factorial <- expand.grid(smartphone_attrs)
+
+# Generate efficient design
+n_profiles <- 16
+if (nrow(full_factorial) < n_profiles) {
+  stop("Requested profiles exceed possible combinations")
+}
+design <- optFederov(
+  ~ brand + price + battery + camera,
+  data = full_factorial,
+  nTrials = n_profiles,
+  approximate = TRUE
+)
+
+knitr::kable(head(design$design), caption = "Sample Conjoint Design")
+```
+
+## How to design a MaxDiff study
+
+### Item selection
+
+```{r maxdiff-items}
+product_features <- c(
+  "Long battery life", "Fast charging", "High-resolution display",
+  "Water resistance", "Compact design", "Expandable storage",
+  "Wireless charging", "Advanced camera features", "Biometric security",
+  "5G connectivity"
+)
+
+cat("MaxDiff Items:\n", paste(1:10, product_features, sep = ". ", collapse = "\n"), "\n")
+```
+
+::: {.note}
+**Tips for Items**:
+- Use 10-30 items.
+- Ensure clarity and non-redundancy.
+- Maintain consistent conceptual level.
+:::
+
+### Best-worst scaling approach
+
+Respondents select the **most** and **least** important items from subsets.
+
+```{r maxdiff-question}
+# Example MaxDiff question
+question_items <- sample(product_features, 4)
+cat("EXAMPLE MAXDIFF QUESTION\n\nPlease select the MOST and LEAST important feature:\n\n",
+    paste(1:4, question_items, sep = ". ", collapse = "\n"),
+    "\n\nMost important: [  ]\nLeast important: [  ]\n")
+```
+
+### Design considerations
+
+- **Items**: 10-30 total.
+- **Set size**: 4-5 items per set.
+- **Repetitions**: Each item appears 3-5 times.
+
+```{r maxdiff-design}
+# Simplified MaxDiff design
+create_maxdiff_design <- function(items, n_sets = 10, set_size = 4) {
+  design <- matrix(NA, nrow = n_sets, ncol = set_size)
+  for (i in 1:n_sets) {
+    design[i, ] <- sample(1:length(items), set_size)
+  }
+  return(design)
+}
+
+design <- create_maxdiff_design(product_features)
+cat("MaxDiff Design (first 3 sets):\n")
+for (i in 1:3) {
+  cat(sprintf("Set %d: %s\n", i, paste(product_features[design[i, ]], collapse = ", ")))
+}
+```
+
+## Best practices for survey design
+
+- Clear instructions and realistic scenarios.
+- Limit questions (12-15 for conjoint, 10-15 for MaxDiff).
+- Ensure mobile compatibility.
+- Include attention checks.
+
+::: {.warning}
+**Pitfalls**:
+- Too many attributes/items.
+- Unrealistic combinations.
+- Poor mobile optimization.
+:::
+
+# 3. Random Data Generation
+
+## Simulate Conjoint choice tasks
+
+```{r conjoint-simulation}
+# Generate profile
+generate_profile <- function(attrs) {
+  setNames(lapply(attrs, sample, 1), names(attrs))
+}
+
+# Generate choice set
+generate_choice_set <- function(attrs, n_alts = 3) {
+  replicate(n_alts, generate_profile(attrs), simplify = FALSE)
+}
+
+# Generate 5 choice sets
+example_choice_sets <- replicate(5, generate_choice_set(smartphone_attrs), simplify = FALSE)
+knitr::kable(bind_rows(example_choice_sets[[1]]), caption = "Example Conjoint Choice Set")
+```
+
+```{r conjoint-simulation-preferences}
+# Preference weights
+preference_weights <- list(
+  brand = c(Apple = 0.8, Samsung = 0.5, Google = 0.3, Xiaomi = 0.1),
+  price = c("$400" = 0.7, "$700" = 0.4, "$1000" = 0.1),
+  battery = c("15 hours" = 0.2, "20 hours" = 0.5, "25 hours" = 0.8),
+  camera = c("16 MP" = 0.3, "64 MP" = 0.6, "128 MP" = 0.9)
+)
+
+# Calculate utility
+calculate_profile_utility <- function(profile, weights) {
+  sum(sapply(names(profile), function(attr) weights[[attr]][profile[[attr]]]))
+}
+
+# Simulate choice
+simulate_choice <- function(choice_set, weights) {
+  utilities <- sapply(choice_set, calculate_profile_utility, weights = weights) +
+               rnorm(length(choice_set), 0, 0.2)
+  which.max(utilities)
+}
+
+# Simulate choices
+simulated_choices <- sapply(example_choice_sets, simulate_choice, weights = preference_weights)
+cat("Simulated choices:\n", sprintf("Choice set %d: Alternative %d chosen\n", 1:5, simulated_choices))
+```
+
+## Simulate MaxDiff tasks
+
+```{r maxdiff-simulation}
+# Generate MaxDiff set
+generate_maxdiff_set <- function(items, items_per_set = 4) {
+  sample(items, items_per_set)
+}
+
+# Generate 10 sets
+maxdiff_sets <- replicate(10, generate_maxdiff_set(product_features), simplify = FALSE)
+knitr::kable(data.frame(Set = rep(1:3, each = 4), Item = unlist(maxdiff_sets[1:3])),
+             caption = "Example MaxDiff Sets")
+```
+
+```{r maxdiff-simulation-preferences}
+# True preferences
+true_preferences <- setNames(c(9, 7, 6, 4, 3, 2, 5, 8, 5, 6), product_features)
+
+# Simulate best-worst choices
+simulate_maxdiff_choices <- function(item_set, preferences) {
+  set_prefs <- preferences[item_set] + rnorm(length(item_set), 0, 0.5)
+  list(best = item_set[which.max(set_prefs)], worst = item_set[which.min(set_prefs)])
+}
+
+# Simulate responses
+maxdiff_responses <- data.frame(Set = 1:3, stringsAsFactors = FALSE)
+for (i in 1:3) {
+  choices <- simulate_maxdiff_choices(maxdiff_sets[[i]], true_preferences)
+  maxdiff_responses$Best_Item[i] <- choices$best
+  maxdiff_responses$Worst_Item[i] <- choices$worst
+}
+knitr::kable(maxdiff_responses, caption = "Example MaxDiff Responses")
+```
+
+# 4. Data Structure & Preparation
+
+## Structure of Conjoint data
+
+```{r conjoint-data}
+# Long do not edit this file
+# Long format
+conjoint_data_long <- tibble(
+  resp_id = rep(1:3, each = 12),
+  task_id = rep(rep(1:4, each = 3), 3),
+  alt_id = rep(1:3, 12),
+  choice = rep(0, 36),
+  brand = sample(smartphone_attrs$brand, 36, replace = TRUE),
+  price = sample(smartphone_attrs$price, 36, replace = TRUE),
+  battery = sample(smartphone_attrs$battery, 36, replace = TRUE),
+  camera = sample(smartphone_attrs$camera, 36, replace = TRUE)
+)
+
+# Simulate choices
+for (r in unique(conjoint_data_long$resp_id)) {
+  for (t in unique(conjoint_data_long$task_id)) {
+    idx <- which(conjoint_data_long$resp_id == r & conjoint_data_long$task_id == t)
+    conjoint_data_long$choice[sample(idx, 1)] <- 1
+  }
+}
+knitr::kable(head(conjoint_data_long), caption = "Conjoint Data (Long Format)")
+```
+
+## Structure of MaxDiff data
+
+```{r maxdiff-data}
+# Stacked format
+maxdiff_data_stacked <- tibble(
+  resp_id = rep(1:3, each = 16),
+  set_id = rep(rep(1:4, each = 4), 3),
+  item_id = rep(1:10, 5)[1:48],
+  item = product_features[rep(1:10, 5)[1:48]],
+  is_best = 0,
+  is_worst = 0
+)
+
+# Simulate best-worst choices
+for (r in unique(maxdiff_data_stacked$resp_id)) {
+  for (s in unique(maxdiff_data_stacked$set_id)) {
+    idx <- which(maxdiff_data_stacked$resp_id == r & maxdiff_data_stacked$set_id == s)
+    best_idx <- sample(idx, 1)
+    worst_idx <- sample(idx[idx != best_idx], 1)
+    maxdiff_data_stacked$is_best[best_idx] <- 1
+    maxdiff_data_stacked$is_worst[worst_idx] <- 1
+  }
+}
+knitr::kable(head(maxdiff_data_stacked), caption = "MaxDiff Data (Stacked Format)")
+```
+
+## Data reshaping
+
+```{r data-reshaping}
+# Reshape conjoint data
+conjoint_reshaped <- conjoint_data_long %>%
+  pivot_longer(cols = c(brand, price, battery, camera), names_to = "attribute", values_to = "level")
+knitr::kable(head(conjoint_reshaped), caption = "Reshaped Conjoint Data")
+
+# Reshape MaxDiff data
+maxdiff_reshaped <- maxdiff_data_stacked %>%
+  mutate(choice = case_when(is_best == 1 ~ 1, is_worst == 1 ~ -1, TRUE ~ 0)) %>%
+  select(resp_id, set_id, item_id, item, choice)
+knitr::kable(head(maxdiff_reshaped), caption = "Reshaped MaxDiff Data")
+```
+
+## Handle missing data
+
+```{r missing-data}
+# Check conjoint data
+check_conjoint_data <- function(data) {
+  missing_choices <- data %>%
+    group_by(resp_id, task_id) %>%
+    summarize(sum_choices = sum(choice), .groups = "drop") %>%
+    filter(sum_choices != 1)
+  missing_attrs <- data %>%
+    summarize(across(c(brand, price, battery, camera), ~sum(is.na(.))))
+  list(missing_choices = missing_choices, missing_attrs = missing_attrs)
+}
+
+# Introduce missing data
+conjoint_data_with_missing <- conjoint_data_long
+conjoint_data_with_missing$choice[1:3] <- 0
+conjoint_data_with_missing$brand[5] <- NA
+
+# Check issues
+missing_check <- check_conjoint_data(conjoint_data_with_missing)
+cat("Tasks with invalid choices:\n")
+print(missing_check$missing_choices)
+cat("\nMissing attributes:\n")
+print(missing_check$missing_attrs)
+```
+
+# 5. Analysis Techniques
+
+## For Conjoint Analysis
+
+### Count analysis
+
+```{r conjoint-count}
+counts <- conjoint_data_long %>%
+  filter(choice == 1) %>%
+  group_by(brand) %>%
+  summarize(count = n(), percentage = count / sum(count) * 100, .groups = "drop")
+ggplot(counts, aes(x = reorder(brand, -percentage), y = percentage)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = sprintf("%.1f%%", percentage)), vjust = -0.5) +
+  labs(title = "Brand Preference (Count Analysis)", x = "Brand", y = "Percentage (%)") +
+  theme_minimal()
+```
+

@@ -1,0 +1,214 @@
+---
+title: "Section 2: Study Design for MaxDiff and Conjoint Analysis"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# 2. Study Design
+
+## How to design a Conjoint experiment
+
+### Attributes and levels selection
+
+```{r conjoint-attributes-example}
+# Example of attributes and levels for a smartphone conjoint study
+smartphone_attributes <- list(
+  brand = c("Apple", "Samsung", "Google", "Xiaomi"),
+  price = c("$400", "$700", "$1000"),
+  battery = c("15 hours", "20 hours", "25 hours"),
+  camera = c("16 MP", "64 MP", "128 MP")
+)
+
+# Display the attributes and levels
+for (attr_name in names(smartphone_attributes)) {
+  cat(paste0("Attribute: ", attr_name, "\n"))
+  cat(paste0("Levels: ", paste(smartphone_attributes[[attr_name]], collapse = ", "), "\n\n"))
+}
+```
+
+::: {.note}
+When selecting attributes and levels for a conjoint study:
+- Choose attributes that are important to consumers
+- Select levels that span the realistic range of the market
+- Limit to 4-6 attributes to avoid respondent fatigue
+- Ensure levels are distinct and meaningful to consumers
+:::
+
+### Types of conjoint designs
+
+1. **Full-profile conjoint**: Respondents evaluate complete product profiles with all attributes
+2. **Partial-profile conjoint**: Respondents evaluate profiles with only a subset of attributes
+3. **Choice-based conjoint (CBC)**: Respondents choose between multiple product profiles
+4. **Adaptive conjoint**: Design adapts based on previous responses
+
+### Experimental design considerations
+
+- **Orthogonality**: Attributes should vary independently
+- **Balance**: Each level should appear an equal number of times
+- **Minimal overlap**: Avoid showing the same level across alternatives in a choice task
+- **Efficiency**: Maximize statistical efficiency while minimizing respondent burden
+
+```{r conjoint-design-example}
+# Example of creating a simple orthogonal design
+# Commented out to avoid package dependency issues
+# If you have AlgDesign package, you can uncomment this code
+
+# Create a full factorial design
+levels <- sapply(smartphone_attributes, length)
+full_factorial <- expand.grid(
+  brand = factor(smartphone_attributes$brand),
+  price = factor(smartphone_attributes$price),
+  battery = factor(smartphone_attributes$battery),
+  camera = factor(smartphone_attributes$camera)
+)
+
+# Show a sample of the full factorial design
+knitr::kable(head(full_factorial, 5), caption = "Sample of Full Factorial Design")
+
+# For a proper efficient design, you would use:
+# library(AlgDesign)
+# set.seed(123)
+# n_profiles <- 16  # Number of profiles to generate
+# design <- optFederov(
+#   ~brand + price + battery + camera,
+#   data = full_factorial,
+#   nTrials = n_profiles,
+#   approximate = TRUE
+# )
+```
+
+## How to design a MaxDiff study
+
+### Item selection
+
+```{r maxdiff-items-example}
+# Example of items for a product feature MaxDiff study
+product_features <- c(
+  "Long battery life",
+  "Fast charging",
+  "High-resolution display",
+  "Water resistance",
+  "Compact design",
+  "Expandable storage",
+  "Wireless charging",
+  "Advanced camera features",
+  "Biometric security",
+  "5G connectivity"
+)
+
+# Display the items
+cat("MaxDiff Items:\n")
+for (i in 1:length(product_features)) {
+  cat(paste0(i, ". ", product_features[i], "\n"))
+}
+```
+
+::: {.note}
+When selecting items for a MaxDiff study:
+- Include 10-30 items total
+- Ensure items are at the same conceptual level
+- Avoid overlapping or redundant items
+- Use clear, concise language
+:::
+
+### Best-worst scaling approach
+
+MaxDiff presents respondents with subsets of items and asks them to select:
+- The MOST important/preferred item
+- The LEAST important/preferred item
+
+```{r maxdiff-question-example}
+# Example of a MaxDiff question
+set.seed(123)
+question_items <- sample(product_features, 4)
+
+cat("EXAMPLE MAXDIFF QUESTION\n\n")
+cat("Please select the MOST important and LEAST important feature for your next smartphone:\n\n")
+
+for (i in 1:length(question_items)) {
+  cat(paste0(i, ". ", question_items[i], "\n"))
+}
+
+cat("\nMost important: [  ]\n")
+cat("Least important: [  ]\n")
+```
+
+### Design considerations
+
+- **Number of items**: Typically 10-30 items total
+- **Items per set**: Usually 4-5 items shown per question
+- **Number of sets**: Each item should appear 3-5 times
+- **Balanced design**: Each item should appear an equal number of times
+
+```{r maxdiff-design-example}
+# Example of creating a balanced MaxDiff design
+# Manual implementation that doesn't require special packages
+
+# Function to create a simple balanced design
+create_maxdiff_design <- function(items, n_sets, set_size) {
+  n_items <- length(items)
+  design <- matrix(0, nrow = n_sets, ncol = set_size)
+  
+  # Simple approach: ensure each item appears approximately equally often
+  for (i in 1:n_sets) {
+    # For each set, sample without replacement
+    available_items <- 1:n_items
+    if (i > 1) {
+      # Count how many times each item has appeared so far
+      item_counts <- table(factor(as.vector(design[1:(i-1),]), levels = 1:n_items))
+      
+      # Prioritize items that have appeared less frequently
+      item_weights <- max(item_counts) + 1 - item_counts
+      available_items <- sample(1:n_items, size = min(n_items, 2*set_size), 
+                               prob = item_weights, replace = FALSE)
+    }
+    
+    # Sample items for this set
+    design[i,] <- sample(available_items, set_size)
+  }
+  
+  return(design)
+}
+
+# Create a balanced design
+set.seed(456)
+maxdiff_design <- create_maxdiff_design(
+  items = product_features,
+  n_sets = 10,
+  set_size = 4
+)
+
+# View the first few sets
+cat("MaxDiff Design (first 3 sets):\n")
+for (i in 1:3) {
+  cat(paste0("Set ", i, ": "))
+  set_items <- product_features[maxdiff_design[i, ]]
+  cat(paste(set_items, collapse = ", "), "\n")
+}
+```
+
+## Best practices for survey design
+
+- **Clear instructions**: Explain the task clearly to respondents
+- **Realistic scenarios**: Frame the context realistically
+- **Respondent fatigue**: Limit the number of questions (12-15 for conjoint, 10-15 for MaxDiff)
+- **Mobile compatibility**: Ensure designs work on mobile devices
+- **Screening questions**: Include attention checks and screening criteria
+
+::: {.warning}
+**Common Survey Design Pitfalls**
+- Too many attributes or levels leading to respondent fatigue
+- Unrealistic attribute combinations creating implausible profiles
+- Unbalanced designs: Some attributes or levels appear more often than others
+- Leading questions: Biasing respondents toward certain options
+- Unclear instructions: Respondents don't understand the task
+:::

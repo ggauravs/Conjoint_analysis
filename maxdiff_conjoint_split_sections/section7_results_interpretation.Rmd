@@ -1,0 +1,243 @@
+---
+title: "Section 7: Results Interpretation & Visualization"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+```
+
+# 6. Results Interpretation & Visualization
+
+## How to read part-worths/utilities
+
+```{r interpret-partworths-setup}
+# Create simulated part-worths for demonstration
+set.seed(123)
+partworths <- data.frame(
+  attribute = c(
+    rep("Brand", 4),
+    rep("Price", 3),
+    rep("Battery", 3),
+    rep("Camera", 3)
+  ),
+  level = c(
+    "Apple", "Samsung", "Google", "Xiaomi",
+    "$400", "$700", "$1000",
+    "15 hours", "20 hours", "25 hours",
+    "16 MP", "64 MP", "128 MP"
+  ),
+  coefficient = c(
+    runif(4, -0.5, 0.5),  # Brand
+    c(0.8, 0.2, -0.6),    # Price (decreasing with higher price)
+    c(-0.4, 0.1, 0.5),    # Battery (increasing with longer life)
+    c(-0.3, 0.2, 0.4)     # Camera (increasing with higher MP)
+  )
+)
+```
+
+```{r interpret-partworths}
+# Calculate zero-centered part-worths
+partworths <- partworths %>%
+  group_by(attribute) %>%
+  mutate(
+    zero_centered = coefficient - mean(coefficient)
+  ) %>%
+  ungroup()
+
+# Calculate attribute importance
+importance <- partworths %>%
+  group_by(attribute) %>%
+  summarize(
+    importance = max(zero_centered) - min(zero_centered),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    relative_importance = importance / sum(importance) * 100
+  )
+
+# Display part-worths
+ggplot(partworths, aes(x = level, y = zero_centered, fill = attribute)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ attribute, scales = "free_x") +
+  labs(title = "Zero-Centered Part-Worth Utilities",
+       x = "Attribute Level", y = "Utility") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Display attribute importance
+ggplot(importance, aes(x = reorder(attribute, -relative_importance), y = relative_importance)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Relative Attribute Importance",
+       x = "Attribute", y = "Relative Importance (%)") +
+  theme_minimal()
+```
+
+::: {.interpretation}
+**How to Interpret Part-Worth Utilities**
+
+The first chart shows zero-centered part-worth utilities for each attribute level. Within each attribute:
+- Higher values indicate stronger preference
+- The range of values shows how much that attribute influences choices
+- The difference between levels shows the relative preference between options
+
+The second chart shows the relative importance of each attribute, calculated as the range of part-worths within each attribute divided by the sum of ranges across all attributes. This indicates how much each attribute drives consumer choices.
+:::
+
+## How to read MaxDiff scores
+
+```{r interpret-maxdiff-setup}
+# Create simulated MaxDiff scores for demonstration
+set.seed(456)
+maxdiff_coefs <- data.frame(
+  item = c(
+    "Long battery life",
+    "Fast charging",
+    "High-resolution display",
+    "Water resistance",
+    "Compact design",
+    "Expandable storage",
+    "Wireless charging",
+    "Advanced camera features",
+    "Biometric security",
+    "5G connectivity"
+  ),
+  coefficient = c(1.2, 0.8, 0.3, -0.2, -0.5, -0.8, 0.2, 0.9, -0.1, 0.4)
+)
+```
+
+```{r interpret-maxdiff}
+# Rescale logit coefficients to 0-100 scale
+maxdiff_coefs <- maxdiff_coefs %>%
+  mutate(
+    rescaled_score = (coefficient - min(coefficient)) / 
+                     (max(coefficient) - min(coefficient)) * 100
+  )
+
+# Display rescaled scores
+ggplot(maxdiff_coefs, aes(x = reorder(item, rescaled_score), y = rescaled_score)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "MaxDiff Scores (0-100 Scale)",
+       x = "Item", y = "Preference Score") +
+  theme_minimal()
+
+# Create a more informative visualization
+maxdiff_viz <- maxdiff_coefs %>%
+  mutate(
+    category = case_when(
+      rescaled_score >= 75 ~ "High Importance",
+      rescaled_score >= 50 ~ "Medium-High Importance",
+      rescaled_score >= 25 ~ "Medium-Low Importance",
+      TRUE ~ "Low Importance"
+    ),
+    category = factor(category, levels = c(
+      "High Importance", "Medium-High Importance", 
+      "Medium-Low Importance", "Low Importance"
+    ))
+  )
+
+ggplot(maxdiff_viz, aes(x = reorder(item, rescaled_score), y = rescaled_score, fill = category)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c(
+    "High Importance" = "#1a9641",
+    "Medium-High Importance" = "#a6d96a",
+    "Medium-Low Importance" = "#fdae61",
+    "Low Importance" = "#d7191c"
+  )) +
+  labs(title = "MaxDiff Preference Scores with Importance Categories",
+       x = "Item", y = "Preference Score (0-100)",
+       fill = "Importance Level") +
+  theme_minimal()
+```
+
+::: {.interpretation}
+**How to Interpret MaxDiff Scores**
+
+The charts above show MaxDiff preference scores rescaled to a 0-100 scale:
+- Higher scores indicate stronger preference or importance
+- The scores are interval-scaled, meaning the differences between scores are meaningful
+- Items can be categorized into importance tiers (as shown in the second chart)
+- The relative spacing between items shows how much more important one item is than another
+
+These scores can be used to prioritize features, benefits, or messaging in product development and marketing.
+:::
+
+## Compare across segments
+
+```{r segment-comparison-setup, eval=TRUE}
+# Create simulated segment data for demonstration
+set.seed(789)
+
+# For MaxDiff
+maxdiff_segments <- data.frame(
+  item = rep(maxdiff_coefs$item, 3),
+  segment = rep(c("Tech Enthusiasts", "Budget Conscious", "Camera Lovers"), each = 10),
+  rescaled_score = c(
+    # Tech Enthusiasts prioritize advanced features
+    c(80, 60, 70, 30, 20, 40, 65, 75, 55, 90),
+    # Budget Conscious prioritize value
+    c(60, 70, 40, 20, 50, 90, 30, 40, 45, 35),
+    # Camera Lovers prioritize camera and display
+    c(50, 40, 90, 30, 20, 25, 35, 95, 40, 60)
+  )
+)
+
+# For Conjoint
+conjoint_segments <- data.frame(
+  brand = rep(c("Apple", "Samsung", "Google", "Xiaomi"), 3),
+  segment = rep(c("Tech Enthusiasts", "Budget Conscious", "Camera Lovers"), each = 4),
+  percentage = c(
+    # Tech Enthusiasts prefer Apple and Google
+    c(40, 25, 25, 10),
+    # Budget Conscious prefer Xiaomi and Samsung
+    c(15, 35, 10, 40),
+    # Camera Lovers prefer Samsung and Apple
+    c(35, 45, 10, 10)
+  )
+)
+```
+
+```{r segment-comparison, eval=TRUE}
+# Visualize segment comparison for MaxDiff
+ggplot(maxdiff_segments, aes(x = item, y = rescaled_score, color = segment, group = segment)) +
+  geom_point(size = 3) +
+  geom_line() +
+  coord_flip() +
+  labs(title = "MaxDiff Scores by Segment",
+       x = "Item", y = "Preference Score (0-100)", color = "Segment") +
+  theme_minimal()
+
+# Visualize segment comparison for brand preference
+ggplot(conjoint_segments, aes(x = brand, y = percentage, fill = segment)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Brand Preference by Segment",
+       x = "Brand", y = "Percentage of Choices (%)", fill = "Segment") +
+  theme_minimal()
+```
+
+::: {.interpretation}
+**Segment Comparison**
+
+The charts above show how preferences differ across customer segments:
+
+For MaxDiff analysis:
+- Different segments prioritize different features
+- The lines show the preference patterns for each segment
+- Crossing lines indicate areas of disagreement between segments
+
+For Conjoint analysis:
+- Brand preferences vary significantly by segment
+- Some segments show stronger preference for certain brands
+- These differences can inform targeted marketing strategies
+
+Segment-specific insights allow for more targeted product development and marketing strategies.
+:::

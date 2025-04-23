@@ -1,0 +1,189 @@
+---
+title: "Section 8: Combined Usage of MaxDiff and Conjoint Analysis"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+```
+
+# 7. Combined Usage
+
+## How MaxDiff and Conjoint can complement each other
+
+MaxDiff and Conjoint analysis can be used together in a complementary research program:
+
+1. **Sequential approach**: Use MaxDiff first to identify the most important features, then include only those in a conjoint study
+2. **Parallel approach**: Run both studies simultaneously to get different perspectives on preferences
+3. **Integrated approach**: Use MaxDiff results to inform the design of conjoint attributes and levels
+
+```{r combined-usage, eval=TRUE}
+# Example of using MaxDiff results to inform Conjoint design
+
+# Step 1: Identify top features from MaxDiff
+# Create simulated MaxDiff results
+set.seed(123)
+maxdiff_results <- data.frame(
+  item = c(
+    "Long battery life",
+    "Fast charging",
+    "High-resolution display",
+    "Water resistance",
+    "Compact design",
+    "Expandable storage",
+    "Wireless charging",
+    "Advanced camera features",
+    "Biometric security",
+    "5G connectivity"
+  ),
+  score = c(85, 72, 65, 45, 30, 25, 55, 78, 50, 60)
+)
+
+# Sort by score
+maxdiff_results <- maxdiff_results %>%
+  arrange(desc(score))
+
+# Get top 5 features
+top_features <- maxdiff_results %>%
+  slice_head(n = 5) %>%
+  pull(item)
+
+cat("Top 5 features from MaxDiff analysis:\n")
+for (i in 1:length(top_features)) {
+  cat(paste0(i, ". ", top_features[i], "\n"))
+}
+
+# Step 2: Design conjoint study based on top features
+# (This would be implemented in an actual survey)
+conjoint_attributes_from_maxdiff <- list(
+  feature1 = c("Basic", "Advanced"),
+  feature2 = c("Basic", "Advanced"),
+  feature3 = c("Basic", "Advanced"),
+  feature4 = c("Basic", "Advanced"),
+  feature5 = c("Basic", "Advanced"),
+  price = c("Low", "Medium", "High")
+)
+
+cat("\nConjoint attributes based on MaxDiff results:\n")
+for (attr in names(conjoint_attributes_from_maxdiff)) {
+  cat(paste0(attr, ": ", paste(conjoint_attributes_from_maxdiff[[attr]], collapse = ", "), "\n"))
+}
+```
+
+::: {.tip}
+**Sequential Approach Benefits**
+
+Using MaxDiff before Conjoint:
+1. Reduces the number of attributes in the conjoint study, making it more manageable
+2. Ensures you focus on attributes that matter most to consumers
+3. Improves the statistical efficiency of the conjoint design
+4. Reduces respondent fatigue by eliminating less important attributes
+5. Provides complementary insights: importance (MaxDiff) and trade-offs (Conjoint)
+:::
+
+## When to use both in a research program
+
+| Research Goal | Approach |
+|---------------|----------|
+| **New Product Development** | Use MaxDiff to identify key features, then Conjoint to optimize configurations |
+| **Pricing Strategy** | Use MaxDiff to identify value drivers, then Conjoint to determine price sensitivity |
+| **Market Segmentation** | Use both methods to identify different preference patterns across segments |
+| **Competitive Analysis** | Use MaxDiff for brand attribute importance, Conjoint for competitive positioning |
+
+```{r combined-research-program, eval=TRUE}
+# Example of a combined research program for smartphone development
+
+# Phase 1: MaxDiff to identify important features
+cat("Phase 1: MaxDiff Study\n")
+cat("Purpose: Identify most important smartphone features\n")
+cat("Output: Prioritized list of features\n\n")
+
+# Show MaxDiff results (using our simulated data)
+knitr::kable(head(maxdiff_results, 5), 
+             caption = "Top 5 Features from MaxDiff")
+
+# Phase 2: Conjoint to optimize product configuration
+cat("\nPhase 2: Conjoint Study\n")
+cat("Purpose: Determine optimal feature levels and price points\n")
+cat("Output: Part-worth utilities and market simulations\n\n")
+
+# Create simulated conjoint results
+conjoint_results <- data.frame(
+  profile = c("Premium", "Mid-range", "Budget", "Value"),
+  share = c(35, 30, 20, 15)
+)
+
+# Show Conjoint results
+knitr::kable(conjoint_results, 
+             caption = "Market Simulation Results from Conjoint")
+
+# Phase 3: Integrated Analysis
+cat("\nPhase 3: Integrated Analysis\n")
+cat("Purpose: Combine insights from both studies\n")
+cat("Output: Optimized product configurations for different segments\n")
+```
+
+## Storytelling with both together
+
+```{r storytelling, eval=TRUE}
+# Example of how to combine insights from both methods
+# This would typically be done with real research data
+
+# Step 1: Identify key features from MaxDiff
+# (Using our simulated results)
+key_features <- maxdiff_results %>%
+  slice_head(n = 3) %>%
+  pull(item)
+
+# Step 2: Extract insights about these features from Conjoint
+# (Using simulated results)
+feature_insights <- data.frame(
+  feature = c("Long battery life", "Advanced camera features", "Fast charging"),
+  utility = c(0.8, 0.7, 0.5),
+  price_sensitivity = c("Medium", "High", "Low")
+)
+
+# Step 3: Combine into actionable insights
+cat("Combined Insights for Product Development:\n\n")
+
+cat("1. Battery Life is a top priority for consumers (MaxDiff rank: 1)\n")
+cat("   - Provides significant utility (0.8) in conjoint trade-offs\n")
+cat("   - Medium price sensitivity suggests consumers will pay more for better battery\n")
+cat("   - Consider making this a key selling point in marketing\n\n")
+
+cat("2. Camera Quality is highly valued (MaxDiff rank: 2)\n")
+cat("   - Strong utility (0.7) but high price sensitivity\n")
+cat("   - Worth the investment in higher-quality camera components\n")
+cat("   - May need tiered options to address different price points\n\n")
+
+cat("3. Fast Charging is important but less critical (MaxDiff rank: 3)\n")
+cat("   - Moderate utility (0.5) with low price sensitivity\n")
+cat("   - Could be a standard feature across all models\n")
+cat("   - Good secondary selling point in marketing\n\n")
+
+cat("Recommended Product Configuration:\n")
+cat("- Focus on extended battery life as primary feature\n")
+cat("- Offer tiered camera options to address price sensitivity\n")
+cat("- Include fast charging as standard across all models\n")
+cat("- Target the 'Tech Enthusiast' segment that values these features most\n")
+```
+
+::: {.interpretation}
+**Storytelling with Combined Insights**
+
+The example above demonstrates how to weave together insights from both MaxDiff and Conjoint analysis to create a compelling story for product development:
+
+1. MaxDiff identifies which features matter most to consumers
+2. Conjoint reveals how consumers make trade-offs between these features
+3. Combined, they provide a complete picture of consumer preferences
+4. This integrated approach leads to more informed product decisions
+
+The narrative connects the dots between importance (MaxDiff) and utility (Conjoint) to create actionable recommendations.
+:::

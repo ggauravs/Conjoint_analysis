@@ -1,0 +1,51 @@
+---
+title: "Section 1: Introduction to MaxDiff and Conjoint Analysis"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# 1. Introduction
+
+## What are Conjoint and MaxDiff analyses?
+
+Conjoint analysis and Maximum Difference Scaling (MaxDiff) are two powerful market research techniques used to understand consumer preferences and decision-making processes.
+
+::: {.callout}
+**Conjoint Analysis** measures how people make trade-offs among features when choosing products or services. It simulates real-world purchasing decisions where consumers must balance multiple competing attributes (e.g., price vs. quality vs. brand).
+:::
+
+::: {.callout}
+**MaxDiff Analysis** (also known as Best-Worst Scaling) measures the relative importance or preference of items in a list. It asks respondents to select the most and least important/preferred items from subsets of a larger list.
+:::
+
+## When to use which method?
+
+| Aspect | Conjoint Analysis | MaxDiff Analysis |
+|--------|------------------|------------------|
+| **Primary Use** | Understanding trade-offs between product attributes | Prioritizing features or benefits |
+| **Best For** | Product configuration, pricing strategy, market simulation | Feature prioritization, messaging strategy, concept testing |
+| **Decision Context** | Complex multi-attribute decisions | Relative importance of individual items |
+| **Output** | Part-worth utilities, importance scores, market simulations | Preference scores, importance rankings |
+| **Sample Size Needs** | Moderate to large | Can work with smaller samples |
+
+## Key differences
+
+The fundamental difference between these methods lies in their approach to preference measurement:
+
+- **Conjoint Analysis**: Trade-off based approach where respondents evaluate complete product profiles with multiple attributes simultaneously
+- **MaxDiff Analysis**: Importance scaling approach where respondents evaluate individual items in isolation
+
+::: {.tip}
+**When to choose Conjoint**: Use when you need to understand how consumers make trade-offs between different product features and when you want to simulate market scenarios.
+
+**When to choose MaxDiff**: Use when you need to prioritize a long list of features or benefits and when you want to understand relative importance without trade-offs.
+:::

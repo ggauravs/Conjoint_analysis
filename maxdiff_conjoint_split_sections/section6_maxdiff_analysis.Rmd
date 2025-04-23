@@ -1,0 +1,249 @@
+---
+title: "Section 6: Analysis Techniques for MaxDiff Analysis"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+```
+
+# 5. Analysis Techniques - Part 2: MaxDiff Analysis
+
+## Counting (Best-Worst scores)
+
+```{r maxdiff-data-setup}
+# Define the features again for this section
+features <- c(
+  "Long battery life",
+  "Fast charging",
+  "High-resolution display",
+  "Water resistance",
+  "Compact design",
+  "Expandable storage",
+  "Wireless charging",
+  "Advanced camera features",
+  "Biometric security",
+  "5G connectivity"
+)
+
+# Create sample data for this section
+set.seed(456)
+maxdiff_data_stacked <- tibble(
+  resp_id = rep(1:3, each = 16),
+  set_id = rep(rep(1:4, each = 4), 3),
+  item_id = rep(1:10, 5)[1:48],
+  item = features[rep(1:10, 5)[1:48]],
+  is_best = 0,
+  is_worst = 0
+)
+
+# Simulate best and worst choices
+for (r in unique(maxdiff_data_stacked$resp_id)) {
+  for (s in unique(maxdiff_data_stacked$set_id)) {
+    idx <- which(maxdiff_data_stacked$resp_id == r & maxdiff_data_stacked$set_id == s)
+    best_idx <- sample(idx, 1)
+    worst_idx <- sample(idx[idx != best_idx], 1)
+    
+    maxdiff_data_stacked$is_best[best_idx] <- 1
+    maxdiff_data_stacked$is_worst[worst_idx] <- 1
+  }
+}
+```
+
+```{r maxdiff-counting}
+# Calculate counts for each item
+maxdiff_counts <- maxdiff_data_stacked %>%
+  group_by(item) %>%
+  summarize(
+    best_count = sum(is_best),
+    worst_count = sum(is_worst),
+    b_w_score = best_count - worst_count,
+    .groups = "drop"
+  ) %>%
+  mutate(
+    times_shown = sum(maxdiff_data_stacked$is_best) / n(),
+    best_pct = best_count / times_shown * 100,
+    worst_pct = worst_count / times_shown * 100,
+    rescaled_score = (b_w_score / times_shown + 1) / 2 * 100  # Rescale to 0-100
+  )
+
+# Sort by B-W score
+maxdiff_counts <- maxdiff_counts %>%
+  arrange(desc(b_w_score))
+
+# Display results
+knitr::kable(maxdiff_counts, digits = 1, 
+             caption = "MaxDiff Counts Analysis Results")
+
+# Visualize B-W scores
+ggplot(maxdiff_counts, aes(x = reorder(item, b_w_score), y = b_w_score)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "MaxDiff Best-Worst Scores",
+       x = "Item", y = "Best-Worst Score") +
+  theme_minimal()
+```
+
+::: {.interpretation}
+The chart above shows the Best-Worst scores for each item in the MaxDiff study. The score is calculated by subtracting the number of times an item was selected as worst from the number of times it was selected as best. Higher scores indicate stronger preference for that item.
+:::
+
+```{r maxdiff-best-worst-visualization}
+# Visualize best and worst percentages
+maxdiff_counts_long <- maxdiff_counts %>%
+  select(item, best_pct, worst_pct) %>%
+  pivot_longer(
+    cols = c(best_pct, worst_pct),
+    names_to = "type",
+    values_to = "percentage"
+  ) %>%
+  mutate(
+    type = ifelse(type == "best_pct", "Best", "Worst"),
+    percentage = ifelse(type == "Worst", -percentage, percentage)
+  )
+
+ggplot(maxdiff_counts_long, aes(x = reorder(item, -percentage), y = percentage, fill = type)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_manual(values = c("Best" = "#1a9641", "Worst" = "#d7191c")) +
+  labs(title = "Best vs. Worst Percentages",
+       x = "Item", y = "Percentage (%)", fill = "Selection") +
+  theme_minimal()
+```
+
+## Logit models
+
+```{r maxdiff-logit-setup, message=FALSE, warning=FALSE}
+# Prepare data for logit analysis
+maxdiff_logit_data <- maxdiff_data_stacked %>%
+  mutate(
+    choice = case_when(
+      is_best == 1 ~ 1,
+      is_worst == 1 ~ -1,
+      TRUE ~ 0
+    )
+  ) %>%
+  filter(choice != 0)  # Keep only best and worst choices
+
+# Create dummy variables for items
+maxdiff_logit_data <- maxdiff_logit_data %>%
+  mutate(
+    item_dummy = 1,
+    choice_sign = choice  # 1 for best, -1 for worst
+  )
+```
+
+```{r maxdiff-logit-simplified, message=FALSE, warning=FALSE}
+# Simplified logit model for MaxDiff
+# In a real analysis, you would use a proper logit model
+
+# Create simulated coefficients for demonstration
+set.seed(789)
+maxdiff_coefs <- data.frame(
+  item = unique(maxdiff_data_stacked$item),
+  coefficient = runif(length(unique(maxdiff_data_stacked$item)), -1, 1),
+  std_error = runif(length(unique(maxdiff_data_stacked$item)), 0.1, 0.3)
+)
+
+# Calculate z and p values
+maxdiff_coefs <- maxdiff_coefs %>%
+  mutate(
+    z_value = coefficient / std_error,
+    p_value = 2 * (1 - pnorm(abs(z_value))),
+    significance = ifelse(p_value < 0.05, "*", "")
+  )
+
+# Sort by coefficient
+maxdiff_coefs <- maxdiff_coefs %>%
+  arrange(desc(coefficient))
+
+# Display results
+knitr::kable(maxdiff_coefs, digits = 3, 
+             caption = "Simulated MaxDiff Logit Model Results")
+
+# Visualize coefficients
+ggplot(maxdiff_coefs, aes(x = reorder(item, coefficient), y = coefficient)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "MaxDiff Logit Coefficients",
+       x = "Item", y = "Coefficient") +
+  theme_minimal()
+```
+
+::: {.interpretation}
+The chart above shows simulated logit model coefficients for each item in the MaxDiff study. These coefficients represent the relative utility or importance of each item. Higher coefficients indicate stronger preference. The logit model provides a more statistically robust approach than simple counting, as it accounts for the experimental design and respondent choice patterns.
+
+In a real analysis, you would use a proper logit model to estimate these coefficients.
+:::
+
+## Individual-level estimation
+
+```{r maxdiff-individual, eval=TRUE}
+# This is a simplified example of individual-level estimation
+# In practice, you would use hierarchical Bayes or similar methods
+
+# Function to estimate individual-level scores
+estimate_individual_maxdiff <- function(data, resp_id) {
+  # Filter data for specific respondent
+  resp_data <- data %>%
+    filter(resp_id == !!resp_id)
+  
+  # Calculate individual counts
+  ind_counts <- resp_data %>%
+    group_by(item) %>%
+    summarize(
+      best_count = sum(is_best),
+      worst_count = sum(is_worst),
+      b_w_score = best_count - worst_count,
+      .groups = "drop"
+    )
+  
+  return(ind_counts)
+}
+
+# Example for one respondent
+individual_scores <- estimate_individual_maxdiff(maxdiff_data_stacked, 1)
+knitr::kable(individual_scores, caption = paste("Individual MaxDiff Scores for Respondent 1"))
+
+# Calculate individual scores for all respondents
+all_individual_scores <- list()
+for (resp in unique(maxdiff_data_stacked$resp_id)) {
+  all_individual_scores[[as.character(resp)]] <- estimate_individual_maxdiff(maxdiff_data_stacked, resp)
+}
+
+# Combine individual scores
+individual_scores_combined <- bind_rows(
+  lapply(names(all_individual_scores), function(resp) {
+    scores <- all_individual_scores[[resp]]
+    scores$resp_id <- as.integer(resp)
+    return(scores)
+  })
+)
+
+# Visualize individual scores
+ggplot(individual_scores_combined, aes(x = item, y = b_w_score, color = factor(resp_id))) +
+  geom_point(size = 3) +
+  geom_line(aes(group = resp_id)) +
+  coord_flip() +
+  labs(title = "Individual-Level MaxDiff Scores",
+       x = "Item", y = "Best-Worst Score", color = "Respondent") +
+  theme_minimal()
+```
+
+::: {.tip}
+**Individual-Level Estimation**
+
+For more advanced individual-level estimation in MaxDiff:
+- **Hierarchical Bayes (HB)**: Provides robust individual-level estimates by borrowing information across respondents
+- **Latent Class Analysis**: Identifies segments with similar preference patterns
+- **Mixed Logit Models**: Accounts for preference heterogeneity with random coefficients
+
+These methods require specialized packages like `bayesm` or `ChoiceModelR` in R.
+:::

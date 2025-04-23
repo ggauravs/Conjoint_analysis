@@ -1,0 +1,375 @@
+---
+title: "Section 9: Pitfalls & Best Practices"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+```
+
+# 8. Pitfalls & Best Practices
+
+## Common survey design mistakes
+
+1. **Too many attributes or levels**: Leads to respondent fatigue and lower data quality
+2. **Unrealistic attribute combinations**: Creates profiles that don't make sense in the real world
+3. **Unbalanced designs**: Some attributes or levels appear more often than others
+4. **Leading questions**: Biasing respondents toward certain options
+5. **Unclear instructions**: Respondents don't understand the task
+
+```{r survey-design-mistakes, eval=TRUE}
+# Example of unrealistic attribute combinations
+unrealistic_profiles <- data.frame(
+  profile = c("Unrealistic 1", "Unrealistic 2"),
+  brand = c("Apple", "Xiaomi"),
+  price = c("$400", "$1000"),
+  battery = c("25 hours", "15 hours"),
+  camera = c("128 MP", "16 MP")
+)
+
+cat("Example of Unrealistic Attribute Combinations:\n")
+cat("Profile 1: High-end features (128 MP camera, 25-hour battery) at budget price ($400)\n")
+cat("Profile 2: Budget features (16 MP camera, 15-hour battery) at premium price ($1000)\n\n")
+
+# Example of balanced vs. unbalanced design
+cat("Balanced Design: Each level appears the same number of times\n")
+balanced <- data.frame(
+  profile = 1:6,
+  brand = c("Apple", "Samsung", "Google", "Xiaomi", "Apple", "Samsung"),
+  price = c("$400", "$700", "$1000", "$400", "$700", "$1000")
+)
+print(table(balanced$brand))
+print(table(balanced$price))
+
+cat("\nUnbalanced Design: Some levels appear more often than others\n")
+unbalanced <- data.frame(
+  profile = 1:6,
+  brand = c("Apple", "Apple", "Apple", "Samsung", "Google", "Xiaomi"),
+  price = c("$400", "$400", "$700", "$700", "$1000", "$1000")
+)
+print(table(unbalanced$brand))
+print(table(unbalanced$price))
+```
+
+::: {.warning}
+**Survey Design Best Practices**
+
+For Conjoint:
+- Limit to 4-6 attributes with 2-5 levels each
+- Ensure attribute combinations are realistic and make sense
+- Use balanced designs where each level appears equally often
+- Limit to 8-12 choice tasks per respondent
+- Include "none" option if appropriate
+
+For MaxDiff:
+- Limit to 15-25 items total
+- Use 4-5 items per set
+- Ensure each item appears 3-5 times
+- Use clear, concise language for items
+- Avoid double-barreled items (containing two concepts)
+:::
+
+## Model overfitting
+
+```{r overfitting, eval=TRUE}
+# Example of how to check for overfitting in conjoint models
+
+# Create simulated data
+set.seed(123)
+n_obs <- 100
+n_vars <- 10
+
+# Create predictor variables
+X <- matrix(rnorm(n_obs * n_vars), nrow = n_obs)
+colnames(X) <- paste0("x", 1:n_vars)
+
+# Create response variable with some noise
+true_betas <- c(0.5, -0.3, 0.7, 0, 0, 0, 0, 0, 0, 0)  # Only first 3 variables matter
+y <- X %*% true_betas + rnorm(n_obs, 0, 0.5)
+
+# Convert to data frame
+sim_data <- as.data.frame(cbind(y, X))
+
+# Split data into training and test sets
+train_indices <- sample(1:n_obs, 0.7 * n_obs)
+train_data <- sim_data[train_indices, ]
+test_data <- sim_data[-train_indices, ]
+
+# Fit models with increasing complexity
+models <- list()
+rmse_train <- numeric(n_vars)
+rmse_test <- numeric(n_vars)
+
+for (i in 1:n_vars) {
+  formula <- as.formula(paste("y ~", paste0("x", 1:i, collapse = " + ")))
+  models[[i]] <- lm(formula, data = train_data)
+  
+  # Calculate RMSE on training data
+  pred_train <- predict(models[[i]], newdata = train_data)
+  rmse_train[i] <- sqrt(mean((train_data$y - pred_train)^2))
+  
+  # Calculate RMSE on test data
+  pred_test <- predict(models[[i]], newdata = test_data)
+  rmse_test[i] <- sqrt(mean((test_data$y - pred_test)^2))
+}
+
+# Create results data frame
+overfitting_results <- data.frame(
+  n_predictors = 1:n_vars,
+  rmse_train = rmse_train,
+  rmse_test = rmse_test
+)
+
+# Plot results
+ggplot(overfitting_results, aes(x = n_predictors)) +
+  geom_line(aes(y = rmse_train, color = "Training"), size = 1) +
+  geom_line(aes(y = rmse_test, color = "Test"), size = 1) +
+  scale_color_manual(values = c("Training" = "blue", "Test" = "red")) +
+  labs(title = "Model Performance vs. Complexity",
+       x = "Number of Predictors",
+       y = "Root Mean Square Error",
+       color = "Dataset") +
+  theme_minimal() +
+  geom_vline(xintercept = 3, linetype = "dashed", color = "darkgray") +
+  annotate("text", x = 3.5, y = max(overfitting_results$rmse_test), 
+           label = "Optimal complexity", hjust = 0)
+```
+
+::: {.tip}
+**Avoiding Overfitting**
+
+For Conjoint models:
+- Use cross-validation to assess model performance
+- Compare hit rates on training and test data
+- Include only significant parameters in the final model
+- Consider regularization techniques for complex models
+- Use holdout tasks to validate predictions
+
+For MaxDiff models:
+- Check for consistency in individual-level estimates
+- Use simpler models when sample sizes are small
+- Validate with holdout tasks
+- Be cautious with too many parameters relative to sample size
+:::
+
+## Interpretation errors
+
+Common interpretation errors to avoid:
+
+1. **Confusing utilities with absolute preferences**: Utilities are relative measures
+2. **Ignoring attribute importance**: High utility doesn't matter if the attribute isn't important
+3. **Overinterpreting small differences**: Check statistical significance
+4. **Extrapolating beyond the study design**: Don't make claims about attributes or levels not tested
+5. **Ignoring respondent heterogeneity**: Average results may mask important segment differences
+
+```{r interpretation-errors, eval=TRUE}
+# Example of interpretation errors
+
+# 1. Confusing utilities with absolute preferences
+cat("Error 1: Confusing utilities with absolute preferences\n")
+cat("Incorrect: 'Consumers strongly prefer Apple over Samsung (utility of 0.5 vs. 0.3)'\n")
+cat("Correct: 'Consumers prefer Apple over Samsung, with a relative utility difference of 0.2'\n\n")
+
+# 2. Ignoring attribute importance
+cat("Error 2: Ignoring attribute importance\n")
+cat("Incorrect: 'We should use 128 MP camera because it has the highest utility within camera options'\n")
+cat("Correct: 'Although 128 MP camera has the highest utility within camera options, battery life is a more important attribute overall'\n\n")
+
+# 3. Overinterpreting small differences
+cat("Error 3: Overinterpreting small differences\n")
+cat("Incorrect: 'The 64 MP camera is preferred over the 16 MP camera (utility difference of 0.1)'\n")
+cat("Correct: 'There is no statistically significant preference between 64 MP and 16 MP cameras (p > 0.05)'\n\n")
+
+# 4. Extrapolating beyond the study design
+cat("Error 4: Extrapolating beyond the study design\n")
+cat("Incorrect: 'Consumers would pay $1200 for a phone with 30-hour battery life'\n")
+cat("Correct: 'Our study only tested prices up to $1000 and battery life up to 25 hours, so we cannot make claims beyond these ranges'\n\n")
+
+# 5. Ignoring respondent heterogeneity
+cat("Error 5: Ignoring respondent heterogeneity\n")
+cat("Incorrect: 'On average, consumers prefer longer battery life over camera quality'\n")
+cat("Correct: 'While the average consumer prefers longer battery life, the Camera Lovers segment (30% of respondents) prioritizes camera quality'\n")
+```
+
+## Sampling issues
+
+```{r sampling-issues, eval=TRUE}
+# Example of how to check for sampling issues
+
+# Create simulated MaxDiff data with some problematic patterns
+set.seed(123)
+n_resp <- 50
+n_sets <- 5
+n_items_per_set <- 4
+
+# Create a function to simulate MaxDiff data
+simulate_maxdiff_data <- function(n_resp, n_sets, n_items_per_set, 
+                                 straight_line_pct = 0, 
+                                 speeder_pct = 0) {
+  
+  # Create base data structure
+  data <- expand.grid(
+    resp_id = 1:n_resp,
+    set_id = 1:n_sets,
+    position = 1:n_items_per_set
+  )
+  
+  # Add item_id (randomly assigned to positions)
+  data$item_id <- sample(1:10, nrow(data), replace = TRUE)
+  
+  # Initialize best/worst columns
+  data$is_best <- 0
+  data$is_worst <- 0
+  
+  # Simulate normal responses
+  for (r in 1:n_resp) {
+    # Skip straight-liners and speeders for now
+    if (r <= n_resp * (1 - straight_line_pct - speeder_pct)) {
+      for (s in 1:n_sets) {
+        idx <- which(data$resp_id == r & data$set_id == s)
+        
+        # Randomly select best and worst
+        best_idx <- sample(idx, 1)
+        worst_idx <- sample(idx[idx != best_idx], 1)
+        
+        data$is_best[best_idx] <- 1
+        data$is_worst[worst_idx] <- 1
+      }
+    }
+  }
+  
+  # Add straight-liners (always choose first position as best, last as worst)
+  straight_liners <- (n_resp * (1 - straight_line_pct - speeder_pct) + 1):(n_resp * (1 - speeder_pct))
+  for (r in straight_liners) {
+    for (s in 1:n_sets) {
+      idx <- which(data$resp_id == r & data$set_id == s)
+      
+      # First position is best, last is worst
+      data$is_best[idx[1]] <- 1
+      data$is_worst[idx[length(idx)]] <- 1
+    }
+  }
+  
+  # Add speeders (random pattern but very fast completion)
+  speeders <- (n_resp * (1 - speeder_pct) + 1):n_resp
+  for (r in speeders) {
+    for (s in 1:n_sets) {
+      idx <- which(data$resp_id == r & data$set_id == s)
+      
+      # Random selection but will be flagged by time
+      best_idx <- sample(idx, 1)
+      worst_idx <- sample(idx[idx != best_idx], 1)
+      
+      data$is_best[best_idx] <- 1
+      data$is_worst[worst_idx] <- 1
+    }
+  }
+  
+  # Add completion time
+  data$completion_time <- rep(NA, nrow(data))
+  for (r in 1:n_resp) {
+    if (r %in% speeders) {
+      # Speeders complete very quickly
+      time <- runif(1, 1, 3)
+    } else {
+      # Normal respondents take reasonable time
+      time <- runif(1, 10, 30)
+    }
+    data$completion_time[data$resp_id == r] <- time
+  }
+  
+  return(data)
+}
+
+# Simulate data with 10% straight-liners and 10% speeders
+maxdiff_data <- simulate_maxdiff_data(n_resp, n_sets, n_items_per_set, 
+                                     straight_line_pct = 0.1, 
+                                     speeder_pct = 0.1)
+
+# Check for straight-lining
+check_straightlining <- function(data) {
+  # Calculate the percentage of times each respondent chooses the same position
+  straightlining <- data %>%
+    group_by(resp_id) %>%
+    summarize(
+      pct_first_best = mean(is_best == 1 & position == 1),
+      pct_last_worst = mean(is_worst == 1 & position == max(position)),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      potential_straightliner = pct_first_best > 0.7 | pct_last_worst > 0.7
+    )
+  
+  return(straightlining)
+}
+
+# Check for speeders
+check_speeders <- function(data) {
+  # Calculate median completion time and flag respondents below threshold
+  speeders <- data %>%
+    group_by(resp_id) %>%
+    summarize(
+      avg_time = mean(completion_time),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      median_time = median(avg_time),
+      speeder = avg_time < (median_time / 2)
+    )
+  
+  return(speeders)
+}
+
+# Run checks
+straightlining_check <- check_straightlining(maxdiff_data)
+speeder_check <- check_speeders(maxdiff_data)
+
+# Display results
+cat("Straight-lining check results:\n")
+knitr::kable(straightlining_check %>% 
+               filter(potential_straightliner) %>% 
+               select(resp_id, pct_first_best, pct_last_worst))
+
+cat("\nSpeeder check results:\n")
+knitr::kable(speeder_check %>% 
+               filter(speeder) %>% 
+               select(resp_id, avg_time, median_time))
+
+# Visualize completion times
+ggplot(speeder_check, aes(x = resp_id, y = avg_time)) +
+  geom_point() +
+  geom_hline(yintercept = median(speeder_check$avg_time) / 2, 
+             linetype = "dashed", color = "red") +
+  labs(title = "Respondent Completion Times",
+       x = "Respondent ID", 
+       y = "Average Completion Time (seconds)") +
+  theme_minimal() +
+  annotate("text", x = max(speeder_check$resp_id), 
+           y = median(speeder_check$avg_time) / 2, 
+           label = "Speeder threshold", hjust = 1, vjust = -0.5)
+```
+
+::: {.warning}
+**Sampling and Data Quality Issues**
+
+Common data quality problems:
+- **Straight-lining**: Respondents always selecting the same position
+- **Speeders**: Respondents completing the survey too quickly
+- **Inconsistent responses**: Contradictory choices across similar questions
+- **Non-representative sample**: Sample doesn't match target population
+- **Small sample size**: Insufficient data for reliable estimates
+
+Best practices:
+- Include attention check questions
+- Monitor completion times
+- Check for straight-lining and inconsistent responses
+- Use quotas to ensure representative samples
+- Calculate minimum sample size based on statistical power
+:::

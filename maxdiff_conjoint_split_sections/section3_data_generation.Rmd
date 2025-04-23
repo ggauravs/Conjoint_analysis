@@ -1,0 +1,193 @@
+---
+title: "Section 3: Random Data Generation for MaxDiff and Conjoint Analysis"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# 3. Random Data Generation
+
+## Simulate Conjoint choice tasks
+
+```{r conjoint-simulation}
+library(tidyverse)
+
+# Define attributes and levels
+smartphone_attrs <- list(
+  brand = c("Apple", "Samsung", "Google", "Xiaomi"),
+  price = c("$400", "$700", "$1000"),
+  battery = c("15 hours", "20 hours", "25 hours"),
+  camera = c("16 MP", "64 MP", "128 MP")
+)
+
+# Function to generate a random profile
+generate_profile <- function(attrs) {
+  profile <- list()
+  for (attr_name in names(attrs)) {
+    profile[[attr_name]] <- sample(attrs[[attr_name]], 1)
+  }
+  return(profile)
+}
+
+# Function to generate a choice set with n alternatives
+generate_choice_set <- function(attrs, n_alts = 3) {
+  choice_set <- list()
+  for (i in 1:n_alts) {
+    choice_set[[i]] <- generate_profile(attrs)
+  }
+  return(choice_set)
+}
+
+# Generate 5 example choice sets
+set.seed(123) # For reproducibility
+example_choice_sets <- list()
+for (i in 1:5) {
+  example_choice_sets[[i]] <- generate_choice_set(smartphone_attrs)
+}
+
+# Display the first choice set
+choice_set_df <- bind_rows(lapply(example_choice_sets[[1]], as.data.frame))
+knitr::kable(choice_set_df, caption = "Example Choice Set for Conjoint Analysis")
+```
+
+::: {.interpretation}
+The table above shows an example choice set for a conjoint analysis task. Each row represents a different product alternative with varying levels for each attribute. In a real survey, respondents would be asked to choose their preferred option from these alternatives.
+:::
+
+```{r conjoint-simulation-with-preferences}
+# Simulate respondent choices based on predefined preferences
+# Define some preference weights
+preference_weights <- list(
+  brand = c(Apple = 0.8, Samsung = 0.5, Google = 0.3, Xiaomi = 0.1),
+  price = c("$400" = 0.7, "$700" = 0.4, "$1000" = 0.1),
+  battery = c("15 hours" = 0.2, "20 hours" = 0.5, "25 hours" = 0.8),
+  camera = c("16 MP" = 0.3, "64 MP" = 0.6, "128 MP" = 0.9)
+)
+
+# Function to calculate utility for a profile
+calculate_profile_utility <- function(profile, weights) {
+  utility <- 0
+  for (attr_name in names(profile)) {
+    level <- profile[[attr_name]]
+    utility <- utility + weights[[attr_name]][level]
+  }
+  return(utility)
+}
+
+# Function to simulate choice based on utilities
+simulate_choice <- function(choice_set, weights) {
+  utilities <- sapply(choice_set, calculate_profile_utility, weights = weights)
+  # Add some random noise
+  utilities <- utilities + rnorm(length(utilities), 0, 0.2)
+  chosen <- which.max(utilities)
+  return(chosen)
+}
+
+# Simulate choices for the example choice sets
+simulated_choices <- sapply(example_choice_sets, simulate_choice, weights = preference_weights)
+
+# Display results
+cat("Simulated choices for 5 choice sets:\n")
+for (i in 1:length(simulated_choices)) {
+  cat(paste0("Choice set ", i, ": Alternative ", simulated_choices[i], " chosen\n"))
+}
+```
+
+## Simulate MaxDiff tasks
+
+```{r maxdiff-simulation}
+# Define the full list of items
+features <- c(
+  "Long battery life",
+  "Fast charging",
+  "High-resolution display",
+  "Water resistance",
+  "Compact design",
+  "Expandable storage",
+  "Wireless charging",
+  "Advanced camera features",
+  "Biometric security",
+  "5G connectivity"
+)
+
+# Function to generate a MaxDiff question set
+generate_maxdiff_set <- function(items, items_per_set = 4) {
+  sample(items, items_per_set)
+}
+
+# Generate 10 MaxDiff question sets
+set.seed(456) # For reproducibility
+maxdiff_sets <- list()
+for (i in 1:10) {
+  maxdiff_sets[[i]] <- generate_maxdiff_set(features)
+}
+
+# Display the first three MaxDiff sets
+maxdiff_example <- data.frame(
+  Set = rep(1:3, each = 4),
+  Item = unlist(maxdiff_sets[1:3])
+)
+
+knitr::kable(maxdiff_example, caption = "Example MaxDiff Question Sets")
+```
+
+::: {.interpretation}
+The table above shows three example MaxDiff question sets. Each set contains 4 randomly selected items from our list of 10 smartphone features. In a real survey, respondents would select the most and least important feature from each set.
+:::
+
+```{r maxdiff-simulation-with-preferences}
+# Define true preference scores for the features
+true_preferences <- c(
+  "Long battery life" = 9,
+  "Fast charging" = 7,
+  "High-resolution display" = 6,
+  "Water resistance" = 4,
+  "Compact design" = 3,
+  "Expandable storage" = 2,
+  "Wireless charging" = 5,
+  "Advanced camera features" = 8,
+  "Biometric security" = 5,
+  "5G connectivity" = 6
+)
+
+# Function to simulate best-worst choices based on preferences
+simulate_maxdiff_choices <- function(item_set, preferences) {
+  # Get preference scores for items in this set
+  set_preferences <- preferences[item_set]
+  
+  # Add some random noise
+  set_preferences <- set_preferences + rnorm(length(set_preferences), 0, 0.5)
+  
+  # Select best and worst
+  best_idx <- which.max(set_preferences)
+  worst_idx <- which.min(set_preferences)
+  
+  return(list(
+    best = item_set[best_idx],
+    worst = item_set[worst_idx]
+  ))
+}
+
+# Simulate responses for the first three sets
+set.seed(789)
+maxdiff_responses <- data.frame(
+  Set = 1:3,
+  stringsAsFactors = FALSE
+)
+
+for (i in 1:3) {
+  choices <- simulate_maxdiff_choices(maxdiff_sets[[i]], true_preferences)
+  maxdiff_responses$Best_Item[i] <- choices$best
+  maxdiff_responses$Worst_Item[i] <- choices$worst
+}
+
+knitr::kable(maxdiff_responses, caption = "Example MaxDiff Responses")
+```
